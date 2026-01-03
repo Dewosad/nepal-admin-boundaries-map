@@ -56,7 +56,6 @@ Data includes:
 - MapLibre GL JS
 - MapTiler (basemap provider)
 - GeoJSON
-- Turf.js (for zoom-to-feature bounding boxes)
 
 ---
 
