@@ -38,7 +38,6 @@ Built using **React, MapLibre GL JS, and GeoJSON**, with MapTiler basemaps.
 ## 🗺 Data Sources
 
 - Nepal administrative boundaries (GeoJSON):
-  https://github.com/opentechcommunity/map-of-nepal
   http://geoportal.ntnc.org.np/layers/?limit=20&offset=0
 
 Data includes:
