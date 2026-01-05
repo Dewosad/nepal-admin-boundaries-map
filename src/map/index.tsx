@@ -28,6 +28,11 @@ const Map = () => {
   const [selectedProvince, setSelectedProvince] = useState<string | null>(null);
   const [district, setDistrict] = useState<string[]>([]);
   const [selectedDistrict, setSelectedDistrict] = useState<string | null>(null);
+  const [municipalities, setMunicipalities] = useState<string[]>([]);
+  const [selectedMunicipality, setSelectedMunicipality] = useState<string | null>(null);
+  const [wards, setWards] = useState<string[]>([]);
+  const [selectedWard, setSelectedWard] = useState<string | null>(null);
+
 
   const handleOpacityChange = (id: string, val: number) =>
     setLayers((p) => p.map((l) => (l.id === id ? { ...l, opacity: val } : l)));
@@ -178,6 +183,18 @@ const Map = () => {
         source: "wards",
         paint: { "line-color": "#003366", "line-width": 0.5 },
       });
+      map.addLayer({
+        id: "wards-label",
+        type: "symbol",
+        source: "wards",
+        layout: {
+          "text-field": ["get", "SURVEY_NAM"],
+          "text-size": 8,
+          "text-offset": [0, 0.6],
+          "text-anchor": "top",
+        },
+        paint: { "text-color": "#000000" },
+      });
     });
 
     return () => map.remove();
@@ -288,6 +305,103 @@ const Map = () => {
       });
   }, [selectedDistrict]);
 
+  // municipalities filter
+  useEffect(() => {
+    fetch("/geojsons/municipal.geojson")
+      .then((r) => r.json())
+      .then((gj: GeoJSON.FeatureCollection) =>
+        setMunicipalities(gj.features.map((f) => f.properties?.GaPa_NaPa))
+      );
+  }, []);
+
+   useEffect(() => {
+    if (!mapRef.current?.isStyleLoaded()) return;
+    const map = mapRef.current;
+
+    if (!selectedMunicipality) {
+      map.setFilter("municipalities-fill", undefined);
+      map.setFilter("municipalities-line", undefined);
+      map.setFilter("municipalities-label", undefined);
+      map.flyTo({ center: [84.124, 28.3949], zoom: 7 });
+      return;
+    }
+
+    fetch("/geojsons/municipal.geojson")
+      .then((r) => r.json())
+      .then((gj: GeoJSON.FeatureCollection) => {
+        const filtered = {
+          ...gj,
+          features: gj.features.filter(
+            (f) => f.properties?.GaPa_NaPa === selectedMunicipality
+          ),
+        };
+
+        const bounds = new maplibregl.LngLatBounds();
+        filtered.features.forEach((f) => {
+          const coords = f.geometry.coordinates;
+
+          const flat = coords.flat(Infinity);
+          for (let i = 0; i < flat.length; i += 2) {
+            bounds.extend([flat[i], flat[i + 1]]);
+          }
+        });
+        map.fitBounds(bounds, { padding: 40 });
+        const filterProv = ["==", ["get", "GaPa_NaPa"], selectedMunicipality];
+        map.setFilter("municipalities-fill", filterProv);
+        map.setFilter("municipalities-line", filterProv);
+        map.setFilter("municipalities-label", filterProv);
+      });
+  }, [selectedMunicipality]);
+
+  // wards filter
+  useEffect(() => {
+    fetch("/geojsons/nepal-wards.geojson")
+      .then((r) => r.json())
+      .then((gj: GeoJSON.FeatureCollection) =>
+        setWards(gj.features.map((f) => f.properties?.SURVEY_NAM))
+      );
+  }, []);
+
+  useEffect(() => {
+    if (!mapRef.current?.isStyleLoaded()) return;
+    const map = mapRef.current;
+
+    if (!selectedWard) {
+      map.setFilter("wards-fill", undefined);
+      map.setFilter("wards-line", undefined);
+      map.setFilter("wards-label", undefined);
+      map.flyTo({ center: [84.124, 28.3949], zoom: 7 });
+      return;
+    }
+
+    fetch("/geojsons/nepal-wards.geojson")
+      .then((r) => r.json())
+      .then((gj: GeoJSON.FeatureCollection) => {
+        const filtered = {
+          ...gj,
+          features: gj.features.filter(
+            (f) => f.properties?.SURVEY_NAM === selectedWard
+          ),
+        };
+
+        const bounds = new maplibregl.LngLatBounds();
+        filtered.features.forEach((f) => {
+          const coords = f.geometry.coordinates;
+
+          const flat = coords.flat(Infinity);
+          for (let i = 0; i < flat.length; i += 2) {
+            bounds.extend([flat[i], flat[i + 1]]);
+          }
+        });
+        map.fitBounds(bounds, { padding: 40 });
+        const filterProv = ["==", ["get", "SURVEY_NAM"], selectedWard];
+        map.setFilter("wards-fill", filterProv);
+        map.setFilter("wards-line", filterProv);
+        map.setFilter("wards-label", filterProv);
+      });
+  }, [selectedWard]);
+  
+
   useEffect(() => {
     if (!mapRef.current) return;
     const map = mapRef.current;
@@ -327,6 +441,12 @@ const Map = () => {
         district={district}
         selectedDistrict={selectedDistrict}
         setSelectedDistrict={setSelectedDistrict}
+        municipalities={municipalities}
+        selectedMunicipality={selectedMunicipality}
+        setSelectedMunicipality={setSelectedMunicipality}
+        wards={wards}
+        selectedWard={selectedWard}
+        setSelectedWard={setSelectedWard}
       />
       <div className="relative w-full">
         <div ref={mapContainerRef} className="w-full h-full" />

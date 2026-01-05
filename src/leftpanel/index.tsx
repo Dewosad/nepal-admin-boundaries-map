@@ -3,6 +3,7 @@ import OpacitySlider from "../components/opacityslider/OpacitySlider";
 import ToggleButton from "../components/togglebutton/ToggleButton";
 import ProvinceSelector from "../components/ProvinceSelector";
 import DistrictSelector from "../components/DistrictSelector";
+import Selector from "../components/Selector";
 
 interface Layer {
   id: string;
@@ -21,6 +22,12 @@ interface LeftPanelProps {
   district: string[];
   selectedDistrict: string | null;
   setSelectedDistrict: (p: string | null) => void;
+  municipalities: string[];
+  selectedMunicipality: string | null;
+  setSelectedMunicipality: (p: string | null) => void;
+  wards: string[];
+  selectedWard: string | null;
+  setSelectedWard: (p: string | null) => void;
 }
 
 const LeftPanel = ({
@@ -33,6 +40,12 @@ const LeftPanel = ({
   district,
   selectedDistrict,
   setSelectedDistrict,
+  municipalities,
+  selectedMunicipality,
+  setSelectedMunicipality,
+  wards,
+  selectedWard,
+  setSelectedWard,
 }: LeftPanelProps) => {
   const [show, setShow] = useState(false);
 
@@ -82,18 +95,34 @@ const LeftPanel = ({
       <div className="flex flex-col gap-5">
         <div className="flex flex-col gap-2">
           <h1>Province Filter</h1>
-          <ProvinceSelector
-            provinces={provinces}
+          <Selector
+            admin={provinces}
             selected={selectedProvince}
             onSelect={setSelectedProvince}
           />
         </div>
         <div className="flex flex-col gap-2">
           <h1>District Filter</h1>
-          <DistrictSelector
-            district={district}
+          <Selector
+            admin={district}
             selected={selectedDistrict}
             onSelect={setSelectedDistrict}
+          />
+        </div>
+        <div className="flex flex-col gap-2">
+          <h1>Municipality Filter</h1>
+          <Selector
+            admin={municipalities}
+            selected={selectedMunicipality}
+            onSelect={setSelectedMunicipality}
+          />
+        </div>
+         <div className="flex flex-col gap-2">
+          <h1>Municipality Filter</h1>
+          <Selector
+            admin={wards}
+            selected={selectedWard}
+            onSelect={setSelectedWard}
           />
         </div>
       </div>
