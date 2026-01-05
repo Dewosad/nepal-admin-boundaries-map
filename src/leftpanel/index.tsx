@@ -1,8 +1,6 @@
 import React, { useState } from "react";
 import OpacitySlider from "../components/opacityslider/OpacitySlider";
 import ToggleButton from "../components/togglebutton/ToggleButton";
-import ProvinceSelector from "../components/ProvinceSelector";
-import DistrictSelector from "../components/DistrictSelector";
 import Selector from "../components/Selector";
 
 interface Layer {
@@ -107,6 +105,7 @@ const LeftPanel = ({
             admin={district}
             selected={selectedDistrict}
             onSelect={setSelectedDistrict}
+            disabled={!selectedProvince}
           />
         </div>
         <div className="flex flex-col gap-2">
@@ -115,14 +114,16 @@ const LeftPanel = ({
             admin={municipalities}
             selected={selectedMunicipality}
             onSelect={setSelectedMunicipality}
+            disabled={!selectedDistrict}
           />
         </div>
          <div className="flex flex-col gap-2">
-          <h1>Municipality Filter</h1>
+          <h1>Ward Filter</h1>
           <Selector
             admin={wards}
             selected={selectedWard}
             onSelect={setSelectedWard}
+            disabled={!selectedMunicipality}
           />
         </div>
       </div>

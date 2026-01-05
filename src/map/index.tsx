@@ -3,8 +3,7 @@ import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import Legend from "../components/Legend";
 import LeftPanel from "../leftpanel";
-import { getProvinceNames } from "../utils/getProvinceNames";
-import { getDistrictNames } from "../utils/getDistrictNames";
+import type { FeatureCollection } from "geojson";
 
 const Map = () => {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
@@ -24,15 +23,59 @@ const Map = () => {
     { id: "wards", label: "Wards", opacity: 0.2, visible: true },
   ]);
 
-  const [provinces, setProvinces] = useState<string[]>([]);
-  const [selectedProvince, setSelectedProvince] = useState<string | null>(null);
-  const [district, setDistrict] = useState<string[]>([]);
+  const [allProvinces, setAllProvinces] = useState<
+    { name: string; fid: string | number }[]
+  >([]);
+  const [allDistricts, setAllDistricts] = useState<
+    { name: string; provinceCode: string | number }[]
+  >([]);
+  const [allMunicipalities, setAllMunicipalities] = useState<
+    { name: string; districtName: string }[]
+  >([]);
+  const [allWards, setAllWards] = useState<
+    { name: string; municipalityName: string; districtName: string }[]
+  >([]);
+
+  const [selectedProvince, setSelectedProvince] = useState<
+    string | number | null
+  >(null);
   const [selectedDistrict, setSelectedDistrict] = useState<string | null>(null);
-  const [municipalities, setMunicipalities] = useState<string[]>([]);
-  const [selectedMunicipality, setSelectedMunicipality] = useState<string | null>(null);
-  const [wards, setWards] = useState<string[]>([]);
+  const [selectedMunicipality, setSelectedMunicipality] = useState<
+    string | null
+  >(null);
   const [selectedWard, setSelectedWard] = useState<string | null>(null);
 
+  // for dropdowns
+  const provinces = allProvinces.map((p) => p.name);
+
+  // filter districts by selected province's fid
+  const districts = selectedProvince
+    ? allDistricts
+        .filter((d) => String(d.provinceCode) === String(selectedProvince))
+        .map((d) => d.name)
+    : [];
+
+  // filter municipalities by selected district NAME
+  const municipalities = selectedDistrict
+    ? allMunicipalities
+        .filter((m) => m.districtName === selectedDistrict)
+        .map((m) => m.name)
+    : [];
+
+  // filter wards by selected district
+  const wards = selectedDistrict
+    ? allWards
+        .filter(
+          (w) =>
+            w.districtName?.toUpperCase() === selectedDistrict?.toUpperCase()
+        )
+        .map((w) => w.name)
+    : [];
+
+  const handleMunicipalityChange = (municipalityName: string | null) => {
+    setSelectedMunicipality(municipalityName);
+    setSelectedWard(null);
+  };
 
   const handleOpacityChange = (id: string, val: number) =>
     setLayers((p) => p.map((l) => (l.id === id ? { ...l, opacity: val } : l)));
@@ -42,6 +85,71 @@ const Map = () => {
       p.map((l) => (l.id === id ? { ...l, visible: !l.visible } : l))
     );
 
+  // cascading handlers - reset children when parent changes
+  const handleProvinceChange = (provinceName: string | null) => {
+    // find the province fid from the name
+    const province = allProvinces.find((p) => p.name === provinceName);
+    setSelectedProvince(province?.fid || null);
+    setSelectedDistrict(null);
+    setSelectedMunicipality(null);
+    setSelectedWard(null);
+  };
+
+  const handleDistrictChange = (districtName: string | null) => {
+    setSelectedDistrict(districtName);
+    setSelectedMunicipality(null);
+    setSelectedWard(null);
+  };
+
+  // load ALL geographic data on mount
+  useEffect(() => {
+    // load all provinces with name and fid
+    fetch("/geojsons/provinces.geojson")
+      .then((r) => r.json())
+      .then((gj: FeatureCollection) => {
+        const provinces = gj.features.map((f) => ({
+          name: f.properties?.state,
+          fid: f.properties?.fid,
+        }));
+        setAllProvinces(provinces);
+      });
+
+    // load all districts with province SCode reference (links to province fid)
+    fetch("/geojsons/districts.geojson")
+      .then((r) => r.json())
+      .then((gj: FeatureCollection) => {
+        const districts = gj.features.map((f) => ({
+          name: f.properties?.DISTRICT,
+          provinceCode: f.properties?.SCode,
+        }));
+        setAllDistricts(districts);
+      });
+
+    // load all municipalities with district NAME reference
+    fetch("/geojsons/municipal.geojson")
+      .then((r) => r.json())
+      .then((gj: FeatureCollection) => {
+        const municipalities = gj.features.map((f) => ({
+          name: f.properties?.GaPa_NaPa,
+          districtName: f.properties?.DISTRICT,
+        }));
+        setAllMunicipalities(municipalities);
+      });
+
+    // load all wards with municipality NAME reference
+    fetch("/geojsons/nepal-wards.geojson")
+      .then((r) => r.json())
+      .then((gj: FeatureCollection) => {
+        const wards = gj.features.map((f) => ({
+          name: f.properties?.SURVEY_NAM,
+          municipalityName: f.properties?.VDC_NAME,
+          districtName: f.properties?.DISTRICT,
+        }));
+        setAllWards(wards);
+      });
+  }, []);
+
+  // initialize map
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
@@ -102,7 +210,7 @@ const Map = () => {
         paint: { "text-color": "#ffffff" },
       });
 
-      /// districts source and layers
+      // districts source and layers
       map.addSource("districts", {
         type: "geojson",
         data: "/geojsons/districts.geojson",
@@ -200,22 +308,13 @@ const Map = () => {
     return () => map.remove();
   }, []);
 
-  // province list for province dropdown
-  useEffect(() => {
-    fetch("/geojsons/provinces.geojson")
-      .then((r) => r.json())
-      .then((gj: GeoJSON.FeatureCollection) =>
-        setProvinces(getProvinceNames(gj))
-      );
-  }, []);
-
-  // fly + filter when province picked
+  // filter and zoom when province selected
   useEffect(() => {
     if (!mapRef.current?.isStyleLoaded()) return;
     const map = mapRef.current;
 
     if (!selectedProvince) {
-      /* reset */
+      // reset province filter
       map.setFilter("states-fill", undefined);
       map.setFilter("states-line", undefined);
       map.setFilter("states-label", undefined);
@@ -223,64 +322,65 @@ const Map = () => {
       return;
     }
 
+    // find province name from fid
+    const provinceName = allProvinces.find(
+      (p) => String(p.fid) === String(selectedProvince)
+    )?.name;
+    if (!provinceName) return;
+
     fetch("/geojsons/provinces.geojson")
       .then((r) => r.json())
-      .then((gj: GeoJSON.FeatureCollection) => {
+      .then((gj: FeatureCollection) => {
         const filtered = {
           ...gj,
           features: gj.features.filter(
-            (f) => f.properties?.state === selectedProvince
+            (f) => f.properties?.state === provinceName
           ),
         };
 
         const bounds = new maplibregl.LngLatBounds();
         filtered.features.forEach((f) => {
-          const coords = f.geometry.coordinates;
-
+          const geometry = f.geometry as any;
+          const coords = geometry.coordinates;
           const flat = coords.flat(Infinity);
           for (let i = 0; i < flat.length; i += 2) {
             bounds.extend([flat[i], flat[i + 1]]);
           }
         });
         map.fitBounds(bounds, { padding: 40 });
-        // const [minX, minY, maxX, maxY] = getBbox(filtered);
-        // map.fitBounds(
-        //   [ [minX, minY], [maxX, maxY] ],
-        //   { padding: 40 }
-        // );
 
-        const filterProv = ["==", ["get", "state"], selectedProvince];
-        map.setFilter("states-fill", filterProv);
-        map.setFilter("states-line", filterProv);
-        map.setFilter("states-label", filterProv);
+        const filterProv = ["==", ["get", "state"], provinceName];
+        map.setFilter(
+          "states-fill",
+          filterProv as maplibregl.FilterSpecification
+        );
+        map.setFilter(
+          "states-line",
+          filterProv as maplibregl.FilterSpecification
+        );
+        map.setFilter(
+          "states-label",
+          filterProv as maplibregl.FilterSpecification
+        );
       });
-  }, [selectedProvince]);
+  }, [selectedProvince, allProvinces]);
 
-  // for district filter
-
-  useEffect(() => {
-    fetch("/geojsons/districts.geojson")
-      .then((r) => r.json())
-      .then((gj: GeoJSON.FeatureCollection) =>
-        setDistrict(getDistrictNames(gj))
-      );
-  }, []);
-
+  // filter and zoom when district selected
   useEffect(() => {
     if (!mapRef.current?.isStyleLoaded()) return;
     const map = mapRef.current;
 
     if (!selectedDistrict) {
+      // reset district filter
       map.setFilter("districts-fill", undefined);
       map.setFilter("districts-line", undefined);
       map.setFilter("districts-label", undefined);
-      map.flyTo({ center: [84.124, 28.3949], zoom: 7 });
       return;
     }
 
     fetch("/geojsons/districts.geojson")
       .then((r) => r.json())
-      .then((gj: GeoJSON.FeatureCollection) => {
+      .then((gj: FeatureCollection) => {
         const filtered = {
           ...gj,
           features: gj.features.filter(
@@ -290,45 +390,47 @@ const Map = () => {
 
         const bounds = new maplibregl.LngLatBounds();
         filtered.features.forEach((f) => {
-          const coords = f.geometry.coordinates;
-
+          const geometry = f.geometry as any;
+          const coords = geometry.coordinates;
           const flat = coords.flat(Infinity);
           for (let i = 0; i < flat.length; i += 2) {
             bounds.extend([flat[i], flat[i + 1]]);
           }
         });
         map.fitBounds(bounds, { padding: 40 });
-        const filterProv = ["==", ["get", "DISTRICT"], selectedDistrict];
-        map.setFilter("districts-fill", filterProv);
-        map.setFilter("districts-line", filterProv);
-        map.setFilter("districts-label", filterProv);
+
+        const filterDist = ["==", ["get", "DISTRICT"], selectedDistrict];
+        map.setFilter(
+          "districts-fill",
+          filterDist as maplibregl.FilterSpecification
+        );
+        map.setFilter(
+          "districts-line",
+          filterDist as maplibregl.FilterSpecification
+        );
+        map.setFilter(
+          "districts-label",
+          filterDist as maplibregl.FilterSpecification
+        );
       });
   }, [selectedDistrict]);
 
-  // municipalities filter
+  // filter and zoom when municipality selected
   useEffect(() => {
-    fetch("/geojsons/municipal.geojson")
-      .then((r) => r.json())
-      .then((gj: GeoJSON.FeatureCollection) =>
-        setMunicipalities(gj.features.map((f) => f.properties?.GaPa_NaPa))
-      );
-  }, []);
-
-   useEffect(() => {
     if (!mapRef.current?.isStyleLoaded()) return;
     const map = mapRef.current;
 
     if (!selectedMunicipality) {
+      // reset municipality filter
       map.setFilter("municipalities-fill", undefined);
       map.setFilter("municipalities-line", undefined);
       map.setFilter("municipalities-label", undefined);
-      map.flyTo({ center: [84.124, 28.3949], zoom: 7 });
       return;
     }
 
     fetch("/geojsons/municipal.geojson")
       .then((r) => r.json())
-      .then((gj: GeoJSON.FeatureCollection) => {
+      .then((gj: FeatureCollection) => {
         const filtered = {
           ...gj,
           features: gj.features.filter(
@@ -338,45 +440,47 @@ const Map = () => {
 
         const bounds = new maplibregl.LngLatBounds();
         filtered.features.forEach((f) => {
-          const coords = f.geometry.coordinates;
-
+          const geometry = f.geometry as any;
+          const coords = geometry.coordinates;
           const flat = coords.flat(Infinity);
           for (let i = 0; i < flat.length; i += 2) {
             bounds.extend([flat[i], flat[i + 1]]);
           }
         });
         map.fitBounds(bounds, { padding: 40 });
-        const filterProv = ["==", ["get", "GaPa_NaPa"], selectedMunicipality];
-        map.setFilter("municipalities-fill", filterProv);
-        map.setFilter("municipalities-line", filterProv);
-        map.setFilter("municipalities-label", filterProv);
+
+        const filterMuni = ["==", ["get", "GaPa_NaPa"], selectedMunicipality];
+        map.setFilter(
+          "municipalities-fill",
+          filterMuni as maplibregl.FilterSpecification
+        );
+        map.setFilter(
+          "municipalities-line",
+          filterMuni as maplibregl.FilterSpecification
+        );
+        map.setFilter(
+          "municipalities-label",
+          filterMuni as maplibregl.FilterSpecification
+        );
       });
   }, [selectedMunicipality]);
 
-  // wards filter
-  useEffect(() => {
-    fetch("/geojsons/nepal-wards.geojson")
-      .then((r) => r.json())
-      .then((gj: GeoJSON.FeatureCollection) =>
-        setWards(gj.features.map((f) => f.properties?.SURVEY_NAM))
-      );
-  }, []);
-
+  // filter and zoom when ward selected
   useEffect(() => {
     if (!mapRef.current?.isStyleLoaded()) return;
     const map = mapRef.current;
 
     if (!selectedWard) {
+      // reset ward filter
       map.setFilter("wards-fill", undefined);
       map.setFilter("wards-line", undefined);
       map.setFilter("wards-label", undefined);
-      map.flyTo({ center: [84.124, 28.3949], zoom: 7 });
       return;
     }
 
     fetch("/geojsons/nepal-wards.geojson")
       .then((r) => r.json())
-      .then((gj: GeoJSON.FeatureCollection) => {
+      .then((gj: FeatureCollection) => {
         const filtered = {
           ...gj,
           features: gj.features.filter(
@@ -386,22 +490,32 @@ const Map = () => {
 
         const bounds = new maplibregl.LngLatBounds();
         filtered.features.forEach((f) => {
-          const coords = f.geometry.coordinates;
-
+          const geometry = f.geometry as any;
+          const coords = geometry.coordinates;
           const flat = coords.flat(Infinity);
           for (let i = 0; i < flat.length; i += 2) {
             bounds.extend([flat[i], flat[i + 1]]);
           }
         });
         map.fitBounds(bounds, { padding: 40 });
-        const filterProv = ["==", ["get", "SURVEY_NAM"], selectedWard];
-        map.setFilter("wards-fill", filterProv);
-        map.setFilter("wards-line", filterProv);
-        map.setFilter("wards-label", filterProv);
+
+        const filterWard = ["==", ["get", "SURVEY_NAM"], selectedWard];
+        map.setFilter(
+          "wards-fill",
+          filterWard as maplibregl.FilterSpecification
+        );
+        map.setFilter(
+          "wards-line",
+          filterWard as maplibregl.FilterSpecification
+        );
+        map.setFilter(
+          "wards-label",
+          filterWard as maplibregl.FilterSpecification
+        );
       });
   }, [selectedWard]);
-  
 
+  // update layer opacity and visibility
   useEffect(() => {
     if (!mapRef.current) return;
     const map = mapRef.current;
@@ -436,14 +550,17 @@ const Map = () => {
         onOpacityChange={handleOpacityChange}
         onToggle={handleToggle}
         provinces={provinces}
-        selectedProvince={selectedProvince}
-        setSelectedProvince={setSelectedProvince}
-        district={district}
+        selectedProvince={
+          allProvinces.find((p) => String(p.fid) === String(selectedProvince))
+            ?.name || null
+        }
+        setSelectedProvince={handleProvinceChange}
+        district={districts}
         selectedDistrict={selectedDistrict}
-        setSelectedDistrict={setSelectedDistrict}
+        setSelectedDistrict={handleDistrictChange}
         municipalities={municipalities}
         selectedMunicipality={selectedMunicipality}
-        setSelectedMunicipality={setSelectedMunicipality}
+        setSelectedMunicipality={handleMunicipalityChange}
         wards={wards}
         selectedWard={selectedWard}
         setSelectedWard={setSelectedWard}
