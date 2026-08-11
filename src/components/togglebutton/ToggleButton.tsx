@@ -1,5 +1,3 @@
-import React from 'react'
-
 interface ToggleButtonProps {
   isActive: boolean
   onClick: () => void
@@ -7,20 +5,20 @@ interface ToggleButtonProps {
 
 const ToggleButton = ({ isActive, onClick }: ToggleButtonProps) => {
   return (
-    <div>
-      <div
-        className={`w-14 h-8 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-300 ${
-          isActive ? 'bg-green-500' : 'bg-gray-500'
+    <button
+      type="button"
+      className={`h-5 w-9 flex items-center rounded-full p-0.5 cursor-pointer transition-colors duration-200 ${
+        isActive ? 'bg-slate-900' : 'bg-slate-300'
+      }`}
+      onClick={onClick}
+      aria-pressed={isActive}
+    >
+      <span
+        className={`bg-white h-4 w-4 rounded-full shadow transform transition-transform duration-200 ${
+          isActive ? 'translate-x-4' : 'translate-x-0'
         }`}
-        onClick={onClick}
-      >
-        <div
-          className={`bg-white w-6 h-6 rounded-full shadow-md transform transition-transform duration-300 ${
-            isActive ? 'translate-x-6' : 'translate-x-0'
-          }`}
-        />
-      </div>
-    </div>
+      />
+    </button>
   )
 }
 

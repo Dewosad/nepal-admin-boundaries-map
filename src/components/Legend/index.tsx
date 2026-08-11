@@ -1,23 +1,60 @@
-import React from 'react'
-
-const Legend = () => {
-  return (
-       <div className="absolute bottom-8 right-4 bg-transparent backdrop-blur-md border border-gray-400 shadow-2xl bg-opacity-90 p-3 rounded z-50">
-    <h4 className="font-bold text-sm mb-2">Legend</h4>
-    <div className="flex items-center mb-1">
-      <span className="w-4 h-4 bg-red-500 mr-2 block"></span>
-      High Risk
-    </div>
-    <div className="flex items-center mb-1">
-      <span className="w-4 h-4 bg-yellow-400 mr-2 block"></span>
-      Medium Risk
-    </div>
-    <div className="flex items-center">
-      <span className="w-4 h-4 bg-green-500 mr-2 block"></span>
-      Low Risk
-    </div>
-  </div>
-  )
+interface Layer {
+  id: string;
+  label: string;
+  visible: boolean;
 }
 
-export default Legend
+interface LegendProps {
+  layers: Layer[];
+  mapMode: "current" | "historical";
+}
+
+const layerColors: Record<string, string> = {
+  boundry: "#4da3ff",
+  states: "#ffa64d",
+  districts: "#FF7F7F",
+  municipalities: "#7FFF7F",
+  wards: "#7FFF7F",
+  "old-regions": "#c084fc",
+  "old-zones": "#facc15",
+  "old-districts": "#fb7185",
+};
+
+const Legend = ({ layers, mapMode }: LegendProps) => {
+  const visibleLayers = layers.filter((layer) => layer.visible);
+
+  return (
+    <div className="absolute bottom-6 right-5 z-10 w-56 rounded-xl border border-white/60 bg-white/90 p-4 shadow-xl backdrop-blur">
+      <div className="mb-3">
+        <p className="text-xs font-semibold uppercase text-slate-500">
+          Legend
+        </p>
+        <h4 className="text-sm font-bold text-slate-900">
+          {mapMode === "current" ? "Current Layers" : "Historical Layers"}
+        </h4>
+      </div>
+      <div className="flex flex-col gap-2">
+        {visibleLayers.length === 0 && (
+          <p className="text-sm text-slate-500">No active layers</p>
+        )}
+        {visibleLayers.map((layer) => (
+          <div
+            key={layer.id}
+            className="flex items-center justify-between gap-3 text-sm text-slate-700"
+          >
+            <div className="flex items-center gap-2">
+              <span
+                className="h-3 w-3 rounded-sm border border-slate-300"
+                style={{ backgroundColor: layerColors[layer.id] }}
+              />
+              <span>{layer.label}</span>
+            </div>
+            <span className="h-px flex-1 bg-slate-200" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+export default Legend;

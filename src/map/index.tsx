@@ -5,23 +5,322 @@ import Legend from "../components/Legend";
 import LeftPanel from "../leftpanel";
 import type { FeatureCollection } from "geojson";
 
+const layerConfigs = {
+  current: [
+    { id: "boundry", label: "Country Boundary", opacity: 0.8, visible: false },
+    { id: "states", label: "Province", opacity: 0.5, visible: true },
+    { id: "districts", label: "Districts", opacity: 0.2, visible: false },
+    {
+      id: "municipalities",
+      label: "Municipalities",
+      opacity: 0.2,
+      visible: false,
+    },
+    { id: "wards", label: "Wards", opacity: 0.2, visible: false },
+  ],
+  historical: [
+    { id: "old-regions", label: "Old Regions", opacity: 0.4, visible: true },
+    { id: "old-zones", label: "Old Zones", opacity: 0.3, visible: false },
+    {
+      id: "old-districts",
+      label: "Old Districts",
+      opacity: 0.2,
+      visible: false,
+    },
+  ],
+};
+
+const addMapLayer = (map: maplibregl.Map, id: string) => {
+  if (map.getSource(id)) return;
+
+  if (id === "boundry") {
+    // boundary source and layers
+    map.addSource("boundry", {
+      type: "geojson",
+      data: "/geojsons/nepal-boundary.geojson",
+    });
+    map.addLayer({
+      id: "boundry-fill",
+      type: "fill",
+      source: "boundry",
+      layout: { visibility: "none" },
+      paint: { "fill-color": "#4da3ff", "fill-opacity": 0.5 },
+    });
+    map.addLayer({
+      id: "boundry-line",
+      type: "line",
+      source: "boundry",
+      layout: { visibility: "none" },
+      paint: { "line-color": "#003366", "line-width": 4 },
+    });
+  }
+
+  if (id === "states") {
+    // states/provinces source and layers
+    map.addSource("states", {
+      type: "geojson",
+      data: "/geojsons/provinces.geojson",
+    });
+    map.addLayer({
+      id: "states-fill",
+      type: "fill",
+      source: "states",
+      paint: { "fill-color": "#ffa64d", "fill-opacity": 0.5 },
+    });
+    map.addLayer({
+      id: "states-line",
+      type: "line",
+      source: "states",
+      paint: { "line-color": "#003366", "line-width": 3 },
+    });
+    map.addLayer({
+      id: "states-label",
+      type: "symbol",
+      source: "states",
+      layout: {
+        "text-field": ["get", "state"],
+        "text-size": 20,
+        "text-offset": [0, 0.6],
+        "text-anchor": "top",
+      },
+      paint: { "text-color": "#ffffff" },
+    });
+  }
+
+  if (id === "districts") {
+    // districts source and layers
+    map.addSource("districts", {
+      type: "geojson",
+      data: "/geojsons/districts.geojson",
+    });
+    map.addLayer({
+      id: "districts-fill",
+      type: "fill",
+      source: "districts",
+      layout: { visibility: "none" },
+      paint: { "fill-color": "#FF7F7F", "fill-opacity": 0.2 },
+    });
+    map.addLayer({
+      id: "districts-line",
+      type: "line",
+      source: "districts",
+      layout: { visibility: "none" },
+      paint: { "line-color": "#003366", "line-width": 2 },
+    });
+    map.addLayer({
+      id: "districts-label",
+      type: "symbol",
+      source: "districts",
+      layout: {
+        visibility: "none",
+        "text-field": ["get", "DISTRICT"],
+        "text-size": 12,
+        "text-offset": [0, 0.6],
+        "text-anchor": "top",
+      },
+      paint: {
+        "text-color": "#000000",
+        "text-halo-color": "#FFFFFF",
+        "text-halo-width": 1,
+      },
+    });
+  }
+
+  if (id === "municipalities") {
+    // municipal source and layers
+    map.addSource("municipalities", {
+      type: "geojson",
+      data: "/geojsons/municipal.geojson",
+    });
+    map.addLayer({
+      id: "municipalities-fill",
+      type: "fill",
+      source: "municipalities",
+      layout: { visibility: "none" },
+      paint: { "fill-color": "#7FFF7F", "fill-opacity": 0.2 },
+    });
+    map.addLayer({
+      id: "municipalities-line",
+      type: "line",
+      source: "municipalities",
+      layout: { visibility: "none" },
+      paint: { "line-color": "#003366", "line-width": 1 },
+    });
+    map.addLayer({
+      id: "municipalities-label",
+      type: "symbol",
+      source: "municipalities",
+      layout: {
+        visibility: "none",
+        "text-field": ["get", "GaPa_NaPa"],
+        "text-size": 8,
+        "text-offset": [0, 0.6],
+        "text-anchor": "top",
+      },
+      paint: { "text-color": "#000000" },
+    });
+  }
+
+  if (id === "wards") {
+    // wards source and layers
+    map.addSource("wards", {
+      type: "geojson",
+      data: "/geojsons/nepal-wards.geojson",
+    });
+    map.addLayer({
+      id: "wards-fill",
+      type: "fill",
+      source: "wards",
+      layout: { visibility: "none" },
+      paint: { "fill-color": "#7FFF7F", "fill-opacity": 0.2 },
+    });
+    map.addLayer({
+      id: "wards-line",
+      type: "line",
+      source: "wards",
+      layout: { visibility: "none" },
+      paint: { "line-color": "#003366", "line-width": 0.5 },
+    });
+    map.addLayer({
+      id: "wards-label",
+      type: "symbol",
+      source: "wards",
+      layout: {
+        visibility: "none",
+        "text-field": ["get", "SURVEY_NAM"],
+        "text-size": 8,
+        "text-offset": [0, 0.6],
+        "text-anchor": "top",
+      },
+      paint: { "text-color": "#000000" },
+    });
+  }
+
+  if (id === "old-regions") {
+    // historic regions source and layers
+    map.addSource("old-regions", {
+      type: "geojson",
+      data: "/historicalgeojsons/nepal-old-regions.geojson",
+    });
+    map.addLayer({
+      id: "old-regions-fill",
+      type: "fill",
+      source: "old-regions",
+      layout: { visibility: "none" },
+      paint: { "fill-color": "#c084fc", "fill-opacity": 0.4 },
+    });
+    map.addLayer({
+      id: "old-regions-line",
+      type: "line",
+      source: "old-regions",
+      layout: { visibility: "none" },
+      paint: { "line-color": "#581c87", "line-width": 3 },
+    });
+    map.addLayer({
+      id: "old-regions-label",
+      type: "symbol",
+      source: "old-regions",
+      layout: {
+        visibility: "none",
+        "text-field": ["get", "name_1"],
+        "text-size": 18,
+        "text-offset": [0, 0.6],
+        "text-anchor": "top",
+      },
+      paint: {
+        "text-color": "#000000",
+        "text-halo-color": "#FFFFFF",
+        "text-halo-width": 1,
+      },
+    });
+  }
+
+  if (id === "old-zones") {
+    // historic zones source and layers
+    map.addSource("old-zones", {
+      type: "geojson",
+      data: "/historicalgeojsons/nepal-old-zones.geojson",
+    });
+    map.addLayer({
+      id: "old-zones-fill",
+      type: "fill",
+      source: "old-zones",
+      layout: { visibility: "none" },
+      paint: { "fill-color": "#facc15", "fill-opacity": 0.3 },
+    });
+    map.addLayer({
+      id: "old-zones-line",
+      type: "line",
+      source: "old-zones",
+      layout: { visibility: "none" },
+      paint: { "line-color": "#854d0e", "line-width": 2 },
+    });
+    map.addLayer({
+      id: "old-zones-label",
+      type: "symbol",
+      source: "old-zones",
+      layout: {
+        visibility: "none",
+        "text-field": ["get", "name_2"],
+        "text-size": 12,
+        "text-offset": [0, 0.6],
+        "text-anchor": "top",
+      },
+      paint: {
+        "text-color": "#000000",
+        "text-halo-color": "#FFFFFF",
+        "text-halo-width": 1,
+      },
+    });
+  }
+
+  if (id === "old-districts") {
+    // historic districts source and layers
+    map.addSource("old-districts", {
+      type: "geojson",
+      data: "/historicalgeojsons/nepal-old-districts.geojson",
+    });
+    map.addLayer({
+      id: "old-districts-fill",
+      type: "fill",
+      source: "old-districts",
+      layout: { visibility: "none" },
+      paint: { "fill-color": "#fb7185", "fill-opacity": 0.2 },
+    });
+    map.addLayer({
+      id: "old-districts-line",
+      type: "line",
+      source: "old-districts",
+      layout: { visibility: "none" },
+      paint: { "line-color": "#881337", "line-width": 1.5 },
+    });
+    map.addLayer({
+      id: "old-districts-label",
+      type: "symbol",
+      source: "old-districts",
+      layout: {
+        visibility: "none",
+        "text-field": ["get", "district"],
+        "text-size": 10,
+        "text-offset": [0, 0.6],
+        "text-anchor": "top",
+      },
+      paint: {
+        "text-color": "#000000",
+        "text-halo-color": "#FFFFFF",
+        "text-halo-width": 1,
+      },
+    });
+  }
+};
+
 const Map = () => {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const MAPTILER_KEY = import.meta.env.VITE_MAPTILER_KEY;
 
-  const [layers, setLayers] = useState([
-    { id: "boundry", label: "Country Boundary", opacity: 0.8, visible: true },
-    { id: "states", label: "Province", opacity: 0.5, visible: true },
-    { id: "districts", label: "Districts", opacity: 0.2, visible: true },
-    {
-      id: "municipalities",
-      label: "Municipalities",
-      opacity: 0.2,
-      visible: true,
-    },
-    { id: "wards", label: "Wards", opacity: 0.2, visible: true },
-  ]);
+  const [mapMode, setMapMode] = useState<"current" | "historical">("current");
+  const [layers, setLayers] = useState(layerConfigs.current);
 
   const [allProvinces, setAllProvinces] = useState<
     { name: string; fid: string | number }[]
@@ -67,7 +366,7 @@ const Map = () => {
     ? allWards
         .filter(
           (w) =>
-            w.districtName?.toUpperCase() === selectedDistrict?.toUpperCase()
+            w.districtName?.toUpperCase() === selectedDistrict?.toUpperCase(),
         )
         .map((w) => w.name)
     : [];
@@ -75,6 +374,19 @@ const Map = () => {
   const handleMunicipalityChange = (municipalityName: string | null) => {
     setSelectedMunicipality(municipalityName);
     setSelectedWard(null);
+
+    if (municipalityName && allWards.length === 0) {
+      fetch("/geojsons/nepal-wards.geojson")
+        .then((r) => r.json())
+        .then((gj: FeatureCollection) => {
+          const wards = gj.features.map((f) => ({
+            name: f.properties?.SURVEY_NAM,
+            municipalityName: f.properties?.VDC_NAME,
+            districtName: f.properties?.DISTRICT,
+          }));
+          setAllWards(wards);
+        });
+    }
   };
 
   const handleOpacityChange = (id: string, val: number) =>
@@ -82,8 +394,17 @@ const Map = () => {
 
   const handleToggle = (id: string) =>
     setLayers((p) =>
-      p.map((l) => (l.id === id ? { ...l, visible: !l.visible } : l))
+      p.map((l) => (l.id === id ? { ...l, visible: !l.visible } : l)),
     );
+
+  const handleMapModeChange = (mode: "current" | "historical") => {
+    setMapMode(mode);
+    setLayers(layerConfigs[mode]);
+  };
+
+  const handleResetLayers = () => {
+    setLayers(layerConfigs[mapMode]);
+  };
 
   // cascading handlers - reset children when parent changes
   const handleProvinceChange = (provinceName: string | null) => {
@@ -93,15 +414,46 @@ const Map = () => {
     setSelectedDistrict(null);
     setSelectedMunicipality(null);
     setSelectedWard(null);
+
+    if (provinceName && allDistricts.length === 0) {
+      fetch("/geojsons/districts.geojson")
+        .then((r) => r.json())
+        .then((gj: FeatureCollection) => {
+          const districts = gj.features.map((f) => ({
+            name: f.properties?.DISTRICT,
+            provinceCode: f.properties?.SCode,
+          }));
+          setAllDistricts(districts);
+        });
+    }
   };
 
   const handleDistrictChange = (districtName: string | null) => {
     setSelectedDistrict(districtName);
     setSelectedMunicipality(null);
     setSelectedWard(null);
+
+    if (districtName && allMunicipalities.length === 0) {
+      fetch("/geojsons/municipal.geojson")
+        .then((r) => r.json())
+        .then((gj: FeatureCollection) => {
+          const municipalities = gj.features.map((f) => ({
+            name: f.properties?.GaPa_NaPa,
+            districtName: f.properties?.DISTRICT,
+          }));
+          setAllMunicipalities(municipalities);
+        });
+    }
   };
 
-  // load ALL geographic data on mount
+  const handleResetFilters = () => {
+    setSelectedProvince(null);
+    setSelectedDistrict(null);
+    setSelectedMunicipality(null);
+    setSelectedWard(null);
+  };
+
+  // load province data on mount
   useEffect(() => {
     // load all provinces with name and fid
     fetch("/geojsons/provinces.geojson")
@@ -114,39 +466,6 @@ const Map = () => {
         setAllProvinces(provinces);
       });
 
-    // load all districts with province SCode reference (links to province fid)
-    fetch("/geojsons/districts.geojson")
-      .then((r) => r.json())
-      .then((gj: FeatureCollection) => {
-        const districts = gj.features.map((f) => ({
-          name: f.properties?.DISTRICT,
-          provinceCode: f.properties?.SCode,
-        }));
-        setAllDistricts(districts);
-      });
-
-    // load all municipalities with district NAME reference
-    fetch("/geojsons/municipal.geojson")
-      .then((r) => r.json())
-      .then((gj: FeatureCollection) => {
-        const municipalities = gj.features.map((f) => ({
-          name: f.properties?.GaPa_NaPa,
-          districtName: f.properties?.DISTRICT,
-        }));
-        setAllMunicipalities(municipalities);
-      });
-
-    // load all wards with municipality NAME reference
-    fetch("/geojsons/nepal-wards.geojson")
-      .then((r) => r.json())
-      .then((gj: FeatureCollection) => {
-        const wards = gj.features.map((f) => ({
-          name: f.properties?.SURVEY_NAM,
-          municipalityName: f.properties?.VDC_NAME,
-          districtName: f.properties?.DISTRICT,
-        }));
-        setAllWards(wards);
-      });
   }, []);
 
   // initialize map
@@ -162,147 +481,7 @@ const Map = () => {
     mapRef.current = map;
 
     map.on("load", () => {
-      // boundary source and layers
-      map.addSource("boundry", {
-        type: "geojson",
-        data: "/geojsons/nepal-boundary.geojson",
-      });
-      map.addLayer({
-        id: "boundry-fill",
-        type: "fill",
-        source: "boundry",
-        paint: { "fill-color": "#4da3ff", "fill-opacity": 0.5 },
-      });
-      map.addLayer({
-        id: "boundry-line",
-        type: "line",
-        source: "boundry",
-        paint: { "line-color": "#003366", "line-width": 4 },
-      });
-
-      // states/provinces source and layers
-      map.addSource("states", {
-        type: "geojson",
-        data: "/geojsons/provinces.geojson",
-      });
-      map.addLayer({
-        id: "states-fill",
-        type: "fill",
-        source: "states",
-        paint: { "fill-color": "#ffa64d", "fill-opacity": 0.5 },
-      });
-      map.addLayer({
-        id: "states-line",
-        type: "line",
-        source: "states",
-        paint: { "line-color": "#003366", "line-width": 3 },
-      });
-      map.addLayer({
-        id: "states-label",
-        type: "symbol",
-        source: "states",
-        layout: {
-          "text-field": ["get", "state"],
-          "text-size": 20,
-          "text-offset": [0, 0.6],
-          "text-anchor": "top",
-        },
-        paint: { "text-color": "#ffffff" },
-      });
-
-      // districts source and layers
-      map.addSource("districts", {
-        type: "geojson",
-        data: "/geojsons/districts.geojson",
-      });
-      map.addLayer({
-        id: "districts-fill",
-        type: "fill",
-        source: "districts",
-        paint: { "fill-color": "#FF7F7F", "fill-opacity": 0.2 },
-      });
-      map.addLayer({
-        id: "districts-line",
-        type: "line",
-        source: "districts",
-        paint: { "line-color": "#003366", "line-width": 2 },
-      });
-      map.addLayer({
-        id: "districts-label",
-        type: "symbol",
-        source: "districts",
-        layout: {
-          "text-field": ["get", "DISTRICT"],
-          "text-size": 12,
-          "text-offset": [0, 0.6],
-          "text-anchor": "top",
-        },
-        paint: {
-          "text-color": "#000000",
-          "text-halo-color": "#FFFFFF",
-          "text-halo-width": 1,
-        },
-      });
-
-      // municipal source and layers
-      map.addSource("municipalities", {
-        type: "geojson",
-        data: "/geojsons/municipal.geojson",
-      });
-      map.addLayer({
-        id: "municipalities-fill",
-        type: "fill",
-        source: "municipalities",
-        paint: { "fill-color": "#7FFF7F", "fill-opacity": 0.2 },
-      });
-      map.addLayer({
-        id: "municipalities-line",
-        type: "line",
-        source: "municipalities",
-        paint: { "line-color": "#003366", "line-width": 1 },
-      });
-      map.addLayer({
-        id: "municipalities-label",
-        type: "symbol",
-        source: "municipalities",
-        layout: {
-          "text-field": ["get", "GaPa_NaPa"],
-          "text-size": 8,
-          "text-offset": [0, 0.6],
-          "text-anchor": "top",
-        },
-        paint: { "text-color": "#000000" },
-      });
-
-      // wards source and layers
-      map.addSource("wards", {
-        type: "geojson",
-        data: "/geojsons/nepal-wards.geojson",
-      });
-      map.addLayer({
-        id: "wards-fill",
-        type: "fill",
-        source: "wards",
-        paint: { "fill-color": "#7FFF7F", "fill-opacity": 0.2 },
-      });
-      map.addLayer({
-        id: "wards-line",
-        type: "line",
-        source: "wards",
-        paint: { "line-color": "#003366", "line-width": 0.5 },
-      });
-      map.addLayer({
-        id: "wards-label",
-        type: "symbol",
-        source: "wards",
-        layout: {
-          "text-field": ["get", "SURVEY_NAM"],
-          "text-size": 8,
-          "text-offset": [0, 0.6],
-          "text-anchor": "top",
-        },
-        paint: { "text-color": "#000000" },
-      });
+      addMapLayer(map, "states");
     });
 
     return () => map.remove();
@@ -324,7 +503,7 @@ const Map = () => {
 
     // find province name from fid
     const provinceName = allProvinces.find(
-      (p) => String(p.fid) === String(selectedProvince)
+      (p) => String(p.fid) === String(selectedProvince),
     )?.name;
     if (!provinceName) return;
 
@@ -334,7 +513,7 @@ const Map = () => {
         const filtered = {
           ...gj,
           features: gj.features.filter(
-            (f) => f.properties?.state === provinceName
+            (f) => f.properties?.state === provinceName,
           ),
         };
 
@@ -352,15 +531,15 @@ const Map = () => {
         const filterProv = ["==", ["get", "state"], provinceName];
         map.setFilter(
           "states-fill",
-          filterProv as maplibregl.FilterSpecification
+          filterProv as maplibregl.FilterSpecification,
         );
         map.setFilter(
           "states-line",
-          filterProv as maplibregl.FilterSpecification
+          filterProv as maplibregl.FilterSpecification,
         );
         map.setFilter(
           "states-label",
-          filterProv as maplibregl.FilterSpecification
+          filterProv as maplibregl.FilterSpecification,
         );
       });
   }, [selectedProvince, allProvinces]);
@@ -372,11 +551,16 @@ const Map = () => {
 
     if (!selectedDistrict) {
       // reset district filter
-      map.setFilter("districts-fill", undefined);
-      map.setFilter("districts-line", undefined);
-      map.setFilter("districts-label", undefined);
+      if (map.getLayer("districts-fill"))
+        map.setFilter("districts-fill", undefined);
+      if (map.getLayer("districts-line"))
+        map.setFilter("districts-line", undefined);
+      if (map.getLayer("districts-label"))
+        map.setFilter("districts-label", undefined);
       return;
     }
+
+    addMapLayer(map, "districts");
 
     fetch("/geojsons/districts.geojson")
       .then((r) => r.json())
@@ -384,7 +568,7 @@ const Map = () => {
         const filtered = {
           ...gj,
           features: gj.features.filter(
-            (f) => f.properties?.DISTRICT === selectedDistrict
+            (f) => f.properties?.DISTRICT === selectedDistrict,
           ),
         };
 
@@ -402,15 +586,15 @@ const Map = () => {
         const filterDist = ["==", ["get", "DISTRICT"], selectedDistrict];
         map.setFilter(
           "districts-fill",
-          filterDist as maplibregl.FilterSpecification
+          filterDist as maplibregl.FilterSpecification,
         );
         map.setFilter(
           "districts-line",
-          filterDist as maplibregl.FilterSpecification
+          filterDist as maplibregl.FilterSpecification,
         );
         map.setFilter(
           "districts-label",
-          filterDist as maplibregl.FilterSpecification
+          filterDist as maplibregl.FilterSpecification,
         );
       });
   }, [selectedDistrict]);
@@ -422,11 +606,16 @@ const Map = () => {
 
     if (!selectedMunicipality) {
       // reset municipality filter
-      map.setFilter("municipalities-fill", undefined);
-      map.setFilter("municipalities-line", undefined);
-      map.setFilter("municipalities-label", undefined);
+      if (map.getLayer("municipalities-fill"))
+        map.setFilter("municipalities-fill", undefined);
+      if (map.getLayer("municipalities-line"))
+        map.setFilter("municipalities-line", undefined);
+      if (map.getLayer("municipalities-label"))
+        map.setFilter("municipalities-label", undefined);
       return;
     }
+
+    addMapLayer(map, "municipalities");
 
     fetch("/geojsons/municipal.geojson")
       .then((r) => r.json())
@@ -434,7 +623,7 @@ const Map = () => {
         const filtered = {
           ...gj,
           features: gj.features.filter(
-            (f) => f.properties?.GaPa_NaPa === selectedMunicipality
+            (f) => f.properties?.GaPa_NaPa === selectedMunicipality,
           ),
         };
 
@@ -452,15 +641,15 @@ const Map = () => {
         const filterMuni = ["==", ["get", "GaPa_NaPa"], selectedMunicipality];
         map.setFilter(
           "municipalities-fill",
-          filterMuni as maplibregl.FilterSpecification
+          filterMuni as maplibregl.FilterSpecification,
         );
         map.setFilter(
           "municipalities-line",
-          filterMuni as maplibregl.FilterSpecification
+          filterMuni as maplibregl.FilterSpecification,
         );
         map.setFilter(
           "municipalities-label",
-          filterMuni as maplibregl.FilterSpecification
+          filterMuni as maplibregl.FilterSpecification,
         );
       });
   }, [selectedMunicipality]);
@@ -472,11 +661,14 @@ const Map = () => {
 
     if (!selectedWard) {
       // reset ward filter
-      map.setFilter("wards-fill", undefined);
-      map.setFilter("wards-line", undefined);
-      map.setFilter("wards-label", undefined);
+      if (map.getLayer("wards-fill")) map.setFilter("wards-fill", undefined);
+      if (map.getLayer("wards-line")) map.setFilter("wards-line", undefined);
+      if (map.getLayer("wards-label"))
+        map.setFilter("wards-label", undefined);
       return;
     }
+
+    addMapLayer(map, "wards");
 
     fetch("/geojsons/nepal-wards.geojson")
       .then((r) => r.json())
@@ -484,7 +676,7 @@ const Map = () => {
         const filtered = {
           ...gj,
           features: gj.features.filter(
-            (f) => f.properties?.SURVEY_NAM === selectedWard
+            (f) => f.properties?.SURVEY_NAM === selectedWard,
           ),
         };
 
@@ -502,43 +694,58 @@ const Map = () => {
         const filterWard = ["==", ["get", "SURVEY_NAM"], selectedWard];
         map.setFilter(
           "wards-fill",
-          filterWard as maplibregl.FilterSpecification
+          filterWard as maplibregl.FilterSpecification,
         );
         map.setFilter(
           "wards-line",
-          filterWard as maplibregl.FilterSpecification
+          filterWard as maplibregl.FilterSpecification,
         );
         map.setFilter(
           "wards-label",
-          filterWard as maplibregl.FilterSpecification
+          filterWard as maplibregl.FilterSpecification,
         );
       });
   }, [selectedWard]);
 
   // update layer opacity and visibility
   useEffect(() => {
-    if (!mapRef.current) return;
+    if (!mapRef.current?.isStyleLoaded()) return;
     const map = mapRef.current;
-    layers.forEach((l) => {
+    const activeLayerIds = layers.map((l) => l.id);
+    const allLayers = [...layerConfigs.current, ...layerConfigs.historical];
+
+    allLayers.forEach((l) => {
+      const activeLayer = layers.find((layer) => layer.id === l.id);
+      const isActiveMapLayer = activeLayerIds.includes(l.id);
+      const isVisible = isActiveMapLayer && activeLayer?.visible;
+
+      if (isVisible) {
+        addMapLayer(map, l.id);
+      }
+
       if (map.getLayer(`${l.id}-fill`))
-        map.setPaintProperty(`${l.id}-fill`, "fill-opacity", l.opacity);
+        map.setPaintProperty(
+          `${l.id}-fill`,
+          "fill-opacity",
+          activeLayer?.opacity ?? l.opacity,
+        );
       if (map.getLayer(`${l.id}-fill`))
         map.setLayoutProperty(
           `${l.id}-fill`,
           "visibility",
-          l.visible ? "visible" : "none"
+          isVisible ? "visible" : "none",
         );
       if (map.getLayer(`${l.id}-line`))
         map.setLayoutProperty(
           `${l.id}-line`,
           "visibility",
-          l.visible ? "visible" : "none"
+          isVisible ? "visible" : "none",
         );
       if (map.getLayer(`${l.id}-label`))
         map.setLayoutProperty(
           `${l.id}-label`,
           "visibility",
-          l.visible ? "visible" : "none"
+          isVisible ? "visible" : "none",
         );
     });
   }, [layers]);
@@ -549,6 +756,7 @@ const Map = () => {
         layers={layers}
         onOpacityChange={handleOpacityChange}
         onToggle={handleToggle}
+        onResetLayers={handleResetLayers}
         provinces={provinces}
         selectedProvince={
           allProvinces.find((p) => String(p.fid) === String(selectedProvince))
@@ -564,10 +772,35 @@ const Map = () => {
         wards={wards}
         selectedWard={selectedWard}
         setSelectedWard={setSelectedWard}
+        onResetFilters={handleResetFilters}
       />
       <div className="relative w-full">
         <div ref={mapContainerRef} className="w-full h-full" />
-        <Legend />
+        <div className="absolute right-5 top-5 z-10 rounded-xl border border-white/60 bg-white/90 p-1 shadow-xl backdrop-blur">
+          <div className="grid grid-cols-2 gap-1">
+            <button
+              className={`cursor-pointer rounded-lg px-4 py-2 text-sm font-semibold transition ${
+                mapMode === "current"
+                  ? "bg-slate-900 text-white shadow"
+                  : "text-slate-600 hover:bg-slate-100"
+              }`}
+              onClick={() => handleMapModeChange("current")}
+            >
+              Current
+            </button>
+            <button
+              className={`cursor-pointer rounded-lg px-4 py-2 text-sm font-semibold transition ${
+                mapMode === "historical"
+                  ? "bg-slate-900 text-white shadow"
+                  : "text-slate-600 hover:bg-slate-100"
+              }`}
+              onClick={() => handleMapModeChange("historical")}
+            >
+              Historical
+            </button>
+          </div>
+        </div>
+        <Legend layers={layers} mapMode={mapMode} />
       </div>
     </div>
   );

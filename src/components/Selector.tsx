@@ -10,7 +10,7 @@ interface Props {
 export default memo(function Selector({ admin, selected, onSelect, disabled = false }: Props) {
   return (
     <select
-      className="w-full border rounded px-2 py-1 disabled:bg-gray-100 disabled:cursor-not-allowed"
+      className="w-full cursor-pointer rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-slate-400 focus:bg-white disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
       value={selected ?? ''}
       onChange={e => onSelect(e.target.value || null)}
       disabled={disabled}

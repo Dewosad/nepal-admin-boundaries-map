@@ -1,21 +1,21 @@
-import React from 'react';
+import type { ChangeEvent } from 'react';
 
 interface OpacityLegendProps {
     title: string;
     value: number;
-    handler: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    handler: (e: ChangeEvent<HTMLInputElement>) => void;
     customStyle?: object;
 
 }
 
 const OpacitySlider = ({ title, value, handler, customStyle = {} }: OpacityLegendProps) => (
     <div
-    className='flex flex-col items-end'
+    className='flex flex-col gap-2'
         style={customStyle}
     >
         {
             title && (
-                <p className='text-white z-201 opacity-100 '>
+                <p className='text-xs font-medium text-slate-500'>
                     {title}
                 </p>
             )
@@ -28,7 +28,7 @@ const OpacitySlider = ({ title, value, handler, customStyle = {} }: OpacityLegen
             max="1"
             step="0.05"
             value={value}
-            className='z-201 appearance-none w-[185px] h-[6px] bg-gray-300 outline-none rounded-[4px] opacity-90 transition-opacity duration-200 cursor-pointer'
+            className='appearance-none w-full h-1.5 bg-slate-200 outline-none rounded-full opacity-90 transition-opacity duration-200 cursor-pointer accent-slate-900'
         />
     </div>
 );
