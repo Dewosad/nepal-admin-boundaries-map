@@ -3,9 +3,29 @@ import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import Legend from "../components/Legend";
 import LeftPanel from "../leftpanel";
+import { registerYrHeatProtocol } from "../lib/yrHeatProtocol";
 import type { FeatureCollection } from "geojson";
 
-const layerConfigs = {
+type MapMode = "current" | "historical" | "heat";
+
+interface LayerConfig {
+  id: string;
+  label: string;
+  opacity: number;
+  visible: boolean;
+}
+
+interface YrAvailableTiles {
+  maxzoom?: number;
+  times?: {
+    tiles?: {
+      webp?: string;
+      png?: string;
+    };
+  }[];
+}
+
+const layerConfigs: Record<MapMode, LayerConfig[]> = {
   current: [
     { id: "boundry", label: "Country Boundary", opacity: 0.8, visible: false },
     { id: "states", label: "Province", opacity: 0.5, visible: true },
@@ -28,6 +48,11 @@ const layerConfigs = {
       visible: false,
     },
   ],
+  heat: [],
+};
+
+const getStreetMapStyleUrl = (maptilerKey: string) => {
+  return `https://api.maptiler.com/maps/topo-v2/style.json?key=${maptilerKey}`;
 };
 
 const addMapLayer = (map: maplibregl.Map, id: string) => {
@@ -314,13 +339,122 @@ const addMapLayer = (map: maplibregl.Map, id: string) => {
   }
 };
 
+const addHeatLayer = (map: maplibregl.Map, tileUrl: string, maxzoom = 6) => {
+  const decodedTileUrl = `yrheat://${tileUrl}`;
+  const backgroundLayerIndex = map
+    .getStyle()
+    .layers?.findIndex((l) => l.type === "hillshade");
+  const backgroundLayerId =
+    backgroundLayerIndex !== undefined && backgroundLayerIndex >= 0
+      ? map.getStyle().layers?.[backgroundLayerIndex + 1].id
+      : undefined;
+
+  console.log("test layers", map.getStyle());
+
+  const layersToRemove = [
+    // Custom
+    "boundry-line",
+    "states-fill",
+    "states-line",
+    "states-label",
+
+    // Water
+    "Water",
+    "Water intermittent",
+    "River",
+    "River intermittent",
+    "River tunnel",
+    "Waterway",
+    "Waterway intermittent",
+
+    // Roads
+    "Minor road outline",
+    "Major road outline",
+    "Highway outline",
+    "Minor road",
+    "Major road",
+    "Highway",
+    "Path minor",
+    "Path",
+    "State labels",
+    // "City labels",
+    "Town labels",
+    // "Country labels",
+    "Continent labels",
+
+    // Boundaries
+    "Other border",
+    "Disputed border",
+    // "Country border",
+  ];
+
+  layersToRemove.forEach((layerId) => {
+    if (map.getLayer(layerId)) {
+      map.removeLayer(layerId);
+    }
+  });
+
+  if (!map.getSource("yr-heat-map")) {
+    // yr air temperature source and layer
+    map.addSource("yr-heat-map", {
+      type: "raster",
+      tiles: [decodedTileUrl],
+      tileSize: 256,
+      maxzoom,
+    });
+    map.addLayer(
+      {
+        id: "yr-heat-map-layer",
+        type: "raster",
+        source: "yr-heat-map",
+        paint: {
+          "raster-opacity": 0.75,
+          "raster-fade-duration": 0,
+        },
+      },
+      backgroundLayerId,
+    );
+    return;
+  }
+
+  const source = map.getSource("yr-heat-map") as maplibregl.RasterTileSource & {
+    setTiles: (tiles: string[]) => void;
+  };
+  source.setTiles([decodedTileUrl]);
+};
+
+const hideConfiguredMapLayers = (map: maplibregl.Map) => {
+  const allLayers = [
+    ...layerConfigs.current,
+    ...layerConfigs.historical,
+    ...layerConfigs.heat,
+  ];
+
+  allLayers.forEach((layer) => {
+    if (map.getLayer(`${layer.id}-fill`)) {
+      map.setPaintProperty(`${layer.id}-fill`, "fill-opacity", 0);
+      map.setLayoutProperty(`${layer.id}-fill`, "visibility", "none");
+    }
+    if (map.getLayer(`${layer.id}-line`)) {
+      map.setLayoutProperty(`${layer.id}-line`, "visibility", "none");
+    }
+    if (map.getLayer(`${layer.id}-label`)) {
+      map.setLayoutProperty(`${layer.id}-label`, "visibility", "none");
+    }
+  });
+};
+
 const Map = () => {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const MAPTILER_KEY = import.meta.env.VITE_MAPTILER_KEY;
 
-  const [mapMode, setMapMode] = useState<"current" | "historical">("current");
+  const [mapMode, setMapMode] = useState<MapMode>("current");
   const [layers, setLayers] = useState(layerConfigs.current);
+  const [heatTileUrl, setHeatTileUrl] = useState<string | null>(null);
+  const [heatMaxZoom, setHeatMaxZoom] = useState(6);
+  const [heatMapError, setHeatMapError] = useState<string | null>(null);
+  const [isMapLoaded, setIsMapLoaded] = useState(false);
 
   const [allProvinces, setAllProvinces] = useState<
     { name: string; fid: string | number }[]
@@ -343,6 +477,10 @@ const Map = () => {
     string | null
   >(null);
   const [selectedWard, setSelectedWard] = useState<string | null>(null);
+
+  useEffect(() => {
+    registerYrHeatProtocol();
+  }, []);
 
   // for dropdowns
   const provinces = allProvinces.map((p) => p.name);
@@ -397,7 +535,11 @@ const Map = () => {
       p.map((l) => (l.id === id ? { ...l, visible: !l.visible } : l)),
     );
 
-  const handleMapModeChange = (mode: "current" | "historical") => {
+  const handleMapModeChange = (mode: MapMode) => {
+    if (mode === "heat" && mapRef.current?.isStyleLoaded()) {
+      hideConfiguredMapLayers(mapRef.current);
+    }
+
     setMapMode(mode);
     setLayers(layerConfigs[mode]);
   };
@@ -465,7 +607,6 @@ const Map = () => {
         }));
         setAllProvinces(provinces);
       });
-
   }, []);
 
   // initialize map
@@ -474,29 +615,75 @@ const Map = () => {
 
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
-      style: `https://api.maptiler.com/maps/streets/style.json?key=${MAPTILER_KEY}`,
+      style: getStreetMapStyleUrl(MAPTILER_KEY),
       center: [84.124, 28.3949],
       zoom: 7,
     });
     mapRef.current = map;
 
     map.on("load", () => {
-      addMapLayer(map, "states");
+      setIsMapLoaded(true);
     });
 
     return () => map.remove();
   }, []);
 
+  useEffect(() => {
+    if (mapMode !== "heat" || heatTileUrl) return;
+
+    fetch("https://prod.yr-maps.met.no/api/air-temperature/available.json")
+      .then((r) => {
+        if (!r.ok) throw new Error(`Yr metadata failed: ${r.status}`);
+        return r.json();
+      })
+      .then((availableTiles: YrAvailableTiles) => {
+        const latestTileUrl = availableTiles.times?.[0]?.tiles?.png;
+        // ??
+        // availableTiles.times?.[0]?.tiles?.webp;
+
+        if (!latestTileUrl) {
+          setHeatMapError("No Yr heat tiles available.");
+          return;
+        }
+
+        setHeatTileUrl(latestTileUrl);
+        setHeatMaxZoom(availableTiles.maxzoom ?? 6);
+        setHeatMapError(null);
+      })
+      .catch((error) => {
+        setHeatMapError("Failed to load Yr heat tiles.");
+        console.error("Failed to load Yr heat tiles", error);
+      });
+  }, [mapMode, heatTileUrl]);
+
+  useEffect(() => {
+    if (!isMapLoaded || !mapRef.current?.isStyleLoaded()) return;
+    const map = mapRef.current;
+
+    if (mapMode !== "heat") {
+      if (map.getLayer("yr-heat-map-layer")) {
+        map.setLayoutProperty("yr-heat-map-layer", "visibility", "none");
+      }
+      return;
+    }
+
+    if (!heatTileUrl) return;
+
+    addHeatLayer(map, heatTileUrl, heatMaxZoom);
+    map.setLayoutProperty("yr-heat-map-layer", "visibility", "visible");
+  }, [mapMode, heatTileUrl, heatMaxZoom, isMapLoaded]);
+
   // filter and zoom when province selected
   useEffect(() => {
-    if (!mapRef.current?.isStyleLoaded()) return;
+    if (!isMapLoaded || !mapRef.current?.isStyleLoaded()) return;
     const map = mapRef.current;
 
     if (!selectedProvince) {
       // reset province filter
-      map.setFilter("states-fill", undefined);
-      map.setFilter("states-line", undefined);
-      map.setFilter("states-label", undefined);
+      if (map.getLayer("states-fill")) map.setFilter("states-fill", undefined);
+      if (map.getLayer("states-line")) map.setFilter("states-line", undefined);
+      if (map.getLayer("states-label"))
+        map.setFilter("states-label", undefined);
       map.flyTo({ center: [84.124, 28.3949], zoom: 7 });
       return;
     }
@@ -529,24 +716,27 @@ const Map = () => {
         map.fitBounds(bounds, { padding: 40 });
 
         const filterProv = ["==", ["get", "state"], provinceName];
-        map.setFilter(
-          "states-fill",
-          filterProv as maplibregl.FilterSpecification,
-        );
-        map.setFilter(
-          "states-line",
-          filterProv as maplibregl.FilterSpecification,
-        );
-        map.setFilter(
-          "states-label",
-          filterProv as maplibregl.FilterSpecification,
-        );
+        if (map.getLayer("states-fill"))
+          map.setFilter(
+            "states-fill",
+            filterProv as maplibregl.FilterSpecification,
+          );
+        if (map.getLayer("states-line"))
+          map.setFilter(
+            "states-line",
+            filterProv as maplibregl.FilterSpecification,
+          );
+        if (map.getLayer("states-label"))
+          map.setFilter(
+            "states-label",
+            filterProv as maplibregl.FilterSpecification,
+          );
       });
-  }, [selectedProvince, allProvinces]);
+  }, [selectedProvince, allProvinces, isMapLoaded]);
 
   // filter and zoom when district selected
   useEffect(() => {
-    if (!mapRef.current?.isStyleLoaded()) return;
+    if (!isMapLoaded || !mapRef.current?.isStyleLoaded()) return;
     const map = mapRef.current;
 
     if (!selectedDistrict) {
@@ -597,11 +787,11 @@ const Map = () => {
           filterDist as maplibregl.FilterSpecification,
         );
       });
-  }, [selectedDistrict]);
+  }, [selectedDistrict, isMapLoaded]);
 
   // filter and zoom when municipality selected
   useEffect(() => {
-    if (!mapRef.current?.isStyleLoaded()) return;
+    if (!isMapLoaded || !mapRef.current?.isStyleLoaded()) return;
     const map = mapRef.current;
 
     if (!selectedMunicipality) {
@@ -652,19 +842,18 @@ const Map = () => {
           filterMuni as maplibregl.FilterSpecification,
         );
       });
-  }, [selectedMunicipality]);
+  }, [selectedMunicipality, isMapLoaded]);
 
   // filter and zoom when ward selected
   useEffect(() => {
-    if (!mapRef.current?.isStyleLoaded()) return;
+    if (!isMapLoaded || !mapRef.current?.isStyleLoaded()) return;
     const map = mapRef.current;
 
     if (!selectedWard) {
       // reset ward filter
       if (map.getLayer("wards-fill")) map.setFilter("wards-fill", undefined);
       if (map.getLayer("wards-line")) map.setFilter("wards-line", undefined);
-      if (map.getLayer("wards-label"))
-        map.setFilter("wards-label", undefined);
+      if (map.getLayer("wards-label")) map.setFilter("wards-label", undefined);
       return;
     }
 
@@ -705,14 +894,24 @@ const Map = () => {
           filterWard as maplibregl.FilterSpecification,
         );
       });
-  }, [selectedWard]);
+  }, [selectedWard, isMapLoaded]);
 
   // update layer opacity and visibility
   useEffect(() => {
-    if (!mapRef.current?.isStyleLoaded()) return;
+    if (!isMapLoaded || !mapRef.current?.isStyleLoaded()) return;
     const map = mapRef.current;
+
+    if (mapMode === "heat") {
+      hideConfiguredMapLayers(map);
+      return;
+    }
+
     const activeLayerIds = layers.map((l) => l.id);
-    const allLayers = [...layerConfigs.current, ...layerConfigs.historical];
+    const allLayers = [
+      ...layerConfigs.current,
+      ...layerConfigs.historical,
+      ...layerConfigs.heat,
+    ];
 
     allLayers.forEach((l) => {
       const activeLayer = layers.find((layer) => layer.id === l.id);
@@ -748,7 +947,7 @@ const Map = () => {
           isVisible ? "visible" : "none",
         );
     });
-  }, [layers]);
+  }, [layers, mapMode, isMapLoaded]);
 
   return (
     <div className="flex w-screen h-screen overflow-hidden">
@@ -777,7 +976,7 @@ const Map = () => {
       <div className="relative w-full">
         <div ref={mapContainerRef} className="w-full h-full" />
         <div className="absolute right-5 top-5 z-10 rounded-xl border border-white/60 bg-white/90 p-1 shadow-xl backdrop-blur">
-          <div className="grid grid-cols-2 gap-1">
+          <div className="grid grid-cols-3 gap-1">
             <button
               className={`cursor-pointer rounded-lg px-4 py-2 text-sm font-semibold transition ${
                 mapMode === "current"
@@ -798,8 +997,23 @@ const Map = () => {
             >
               Historical
             </button>
+            <button
+              className={`cursor-pointer rounded-lg px-4 py-2 text-sm font-semibold transition ${
+                mapMode === "heat"
+                  ? "bg-slate-900 text-white shadow"
+                  : "text-slate-600 hover:bg-slate-100"
+              }`}
+              onClick={() => handleMapModeChange("heat")}
+            >
+              Heat Map
+            </button>
           </div>
         </div>
+        {mapMode === "heat" && heatMapError && (
+          <div className="absolute right-5 top-20 z-10 rounded-xl border border-white/60 bg-white/90 px-4 py-3 text-sm text-slate-700 shadow-xl backdrop-blur">
+            {heatMapError}
+          </div>
+        )}
         <Legend layers={layers} mapMode={mapMode} />
       </div>
     </div>

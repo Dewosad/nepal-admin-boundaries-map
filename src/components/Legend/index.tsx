@@ -6,7 +6,7 @@ interface Layer {
 
 interface LegendProps {
   layers: Layer[];
-  mapMode: "current" | "historical";
+  mapMode: "current" | "historical" | "heat";
 }
 
 const layerColors: Record<string, string> = {
@@ -30,14 +30,24 @@ const Legend = ({ layers, mapMode }: LegendProps) => {
           Legend
         </p>
         <h4 className="text-sm font-bold text-slate-900">
-          {mapMode === "current" ? "Current Layers" : "Historical Layers"}
+          {mapMode === "current"
+            ? "Current Layers"
+            : mapMode === "historical"
+              ? "Historical Layers"
+              : "Heat Map"}
         </h4>
       </div>
       <div className="flex flex-col gap-2">
-        {visibleLayers.length === 0 && (
+        {mapMode === "heat" && (
+          <div className="flex items-center gap-2 text-sm text-slate-700">
+            <span className="h-3 w-8 rounded-full bg-gradient-to-r from-blue-500 via-yellow-400 to-red-500" />
+            <span>Yr air temperature</span>
+          </div>
+        )}
+        {mapMode !== "heat" && visibleLayers.length === 0 && (
           <p className="text-sm text-slate-500">No active layers</p>
         )}
-        {visibleLayers.map((layer) => (
+        {mapMode !== "heat" && visibleLayers.map((layer) => (
           <div
             key={layer.id}
             className="flex items-center justify-between gap-3 text-sm text-slate-700"
