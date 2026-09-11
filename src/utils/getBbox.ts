@@ -1,21 +1,34 @@
+type NestedCoordinates = GeoJSON.Position | NestedCoordinates[];
+
 export function getBbox(geoJson: GeoJSON.FeatureCollection): [number, number, number, number] {
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
 
-  const scan = (coords: any) => {
+  const scanCoordinates = (coords: NestedCoordinates) => {
+    if (typeof coords[0] === "number") {
+      const [lon, lat] = coords as GeoJSON.Position;
+      minX = Math.min(minX, lon);
+      minY = Math.min(minY, lat);
+      maxX = Math.max(maxX, lon);
+      maxY = Math.max(maxY, lat);
+      return;
+    }
+
     for (let i = 0; i < coords.length; i++) {
-      const c = coords[i];
-      if (Array.isArray(c[0])) {          // nested (MultiPolygon etc.)
-        scan(c);
-      } else {                            // simple [lon, lat]
-        const [lon, lat] = c;
-        minX = Math.min(minX, lon);
-        minY = Math.min(minY, lat);
-        maxX = Math.max(maxX, lon);
-        maxY = Math.max(maxY, lat);
-      }
+      scanCoordinates(coords[i] as NestedCoordinates);
     }
   };
 
-  geoJson.features.forEach(f => scan(f.geometry.coordinates));
+  const scanGeometry = (geometry: GeoJSON.Geometry | null) => {
+    if (!geometry) return;
+
+    if (geometry.type === "GeometryCollection") {
+      geometry.geometries.forEach(scanGeometry);
+      return;
+    }
+
+    scanCoordinates(geometry.coordinates);
+  };
+
+  geoJson.features.forEach(f => scanGeometry(f.geometry));
   return [minX, minY, maxX, maxY];
 }
