@@ -15,6 +15,8 @@ interface LeftPanelProps {
   onOpacityChange: (id: string, val: number) => void;
   onToggle: (id: string) => void;
   onResetLayers: () => void;
+  isOpen: boolean;
+  onClose: () => void;
   provinces: string[];
   selectedProvince: string | null;
   setSelectedProvince: (p: string | null) => void;
@@ -35,6 +37,8 @@ const LeftPanel = ({
   onOpacityChange = () => {},
   onToggle = () => {},
   onResetLayers,
+  isOpen,
+  onClose,
   provinces,
   selectedProvince,
   setSelectedProvince,
@@ -52,12 +56,32 @@ const LeftPanel = ({
   const [show, setShow] = useState(false);
 
   return (
-    <div className="h-screen w-72 bg-slate-50 p-4 overflow-y-auto shadow-xl z-10 border-r border-slate-200">
-      <div className="mb-5">
-        <p className="text-xs font-semibold uppercase text-slate-500">
-          Controls
-        </p>
-        <h1 className="text-2xl font-bold text-slate-900">Nepal Map</h1>
+    <>
+      <div
+        className={`fixed inset-0 z-20 bg-slate-950/35 transition-opacity md:hidden ${
+          isOpen ? "opacity-100" : "pointer-events-none opacity-0"
+        }`}
+        onClick={onClose}
+      />
+      <aside
+        className={`fixed left-0 top-0 z-30 h-dvh w-[min(21rem,calc(100vw-2rem))] overflow-y-auto border-r border-slate-200 bg-slate-50 p-4 shadow-xl transition-transform duration-200 md:static md:z-10 md:h-screen md:w-72 md:translate-x-0 ${
+          isOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+      <div className="mb-5 flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-semibold uppercase text-slate-500">
+            Controls
+          </p>
+          <h1 className="text-2xl font-bold text-slate-900">Nepal Map</h1>
+        </div>
+        <button
+          type="button"
+          className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm md:hidden"
+          onClick={onClose}
+        >
+          Close
+        </button>
       </div>
       <div
         onClick={() => setShow(!show)}
@@ -173,7 +197,8 @@ const LeftPanel = ({
           />
         </div>
       </div>
-    </div>
+      </aside>
+    </>
   );
 };
 

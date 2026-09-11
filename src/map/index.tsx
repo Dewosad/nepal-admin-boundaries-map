@@ -55,6 +55,17 @@ const getStreetMapStyleUrl = (maptilerKey: string) => {
   return `https://api.maptiler.com/maps/topo-v2/style.json?key=${maptilerKey}`;
 };
 
+const mapModeStorageKey = "nepal-map-mode";
+
+const getInitialMapMode = (): MapMode => {
+  if (typeof window === "undefined") return "current";
+
+  const savedMode = window.sessionStorage.getItem(mapModeStorageKey);
+  window.sessionStorage.removeItem(mapModeStorageKey);
+
+  return savedMode === "heat" ? "heat" : "current";
+};
+
 const addMapLayer = (map: maplibregl.Map, id: string) => {
   if (map.getSource(id)) return;
 
@@ -339,6 +350,43 @@ const addMapLayer = (map: maplibregl.Map, id: string) => {
   }
 };
 
+const heatSourceId = "yr-heat-map";
+const heatLayerId = "yr-heat-map-layer";
+const heatBaseLayerIdsToHide = [
+  // Water
+  // "Water",
+  // "Water intermittent",
+  // "River",
+  // "River intermittent",
+  // "River tunnel",
+  // "Waterway",
+  // "Waterway intermittent",
+  // Roads
+  // "Minor road outline",
+  // "Major road outline",
+  // "Highway outline",
+  // "Minor road",
+  // "Major road",
+  // "Highway",
+  // "Path minor",
+  // "Path",
+  // "Country labels",
+  // Boundaries
+  // "Other border",
+  // "Disputed border",
+];
+
+const setHeatBaseLayerVisibility = (
+  map: maplibregl.Map,
+  visibility: "visible" | "none",
+) => {
+  heatBaseLayerIdsToHide.forEach((layerId) => {
+    if (map.getLayer(layerId)) {
+      map.setLayoutProperty(layerId, "visibility", visibility);
+    }
+  });
+};
+
 const addHeatLayer = (map: maplibregl.Map, tileUrl: string, maxzoom = 6) => {
   const decodedTileUrl = `yrheat://${tileUrl}`;
   const backgroundLayerIndex = map
@@ -349,95 +397,43 @@ const addHeatLayer = (map: maplibregl.Map, tileUrl: string, maxzoom = 6) => {
       ? map.getStyle().layers?.[backgroundLayerIndex + 1].id
       : undefined;
 
-  // const style = map.getStyle();
-  // const layers = style.layers || [];
-
-  // const shadingIndices = layers
-  //   .map((l, i) => ({ l, i }))
-  //   .filter(({ l }) => l.type === "hillshade" || /hillshade/i.test(l.id))
-  //   .map(({ i }) => i);
-
-  // const lastShadingIndex = shadingIndices.length
-  //   ? Math.max(...shadingIndices)
-  //   : -1;
-
-  // const backgroundLayerId =
-  //   lastShadingIndex >= 0 && layers[lastShadingIndex + 1]
-  //     ? layers[lastShadingIndex + 1].id
-  //     : undefined;
-
-  console.log("test layers", map.getStyle());
-
-  const layersToRemove = [
-    // Custom
-    "boundry-line",
-    "states-fill",
-    "states-line",
-    "states-label",
-
-    // Water
-    "Water",
-    "Water intermittent",
-    "River",
-    "River intermittent",
-    "River tunnel",
-    "Waterway",
-    "Waterway intermittent",
-
-    // Roads
-    "Minor road outline",
-    "Major road outline",
-    "Highway outline",
-    "Minor road",
-    "Major road",
-    "Highway",
-    "Path minor",
-    "Path",
-    // "State labels",
-    // "City labels",
-    // "Town labels",
-    "Country labels",
-    // "Continent labels",
-
-    // Boundaries
-    "Other border",
-    "Disputed border",
-    // "Country border",
-  ];
-
-  layersToRemove.forEach((layerId) => {
-    if (map.getLayer(layerId)) {
-      map.removeLayer(layerId);
-    }
-  });
-
-  if (!map.getSource("yr-heat-map")) {
-    // yr air temperature source and layer
-    map.addSource("yr-heat-map", {
-      type: "raster",
-      tiles: [decodedTileUrl],
-      tileSize: 256,
-      maxzoom,
-    });
-    map.addLayer(
-      {
-        id: "yr-heat-map-layer",
-        type: "raster",
-        source: "yr-heat-map",
-        paint: {
-          "raster-opacity": 0.75,
-          "raster-fade-duration": 0,
-        },
-      },
-      backgroundLayerId,
-    );
-    return;
+  if (map.getLayer(heatLayerId)) {
+    map.removeLayer(heatLayerId);
   }
 
-  const source = map.getSource("yr-heat-map") as maplibregl.RasterTileSource & {
-    setTiles: (tiles: string[]) => void;
-  };
-  source.setTiles([decodedTileUrl]);
+  if (map.getSource(heatSourceId)) {
+    map.removeSource(heatSourceId);
+  }
+
+  // yr air temperature source and layer
+  map.addSource(heatSourceId, {
+    type: "raster",
+    tiles: [decodedTileUrl],
+    tileSize: 256,
+    maxzoom,
+  });
+  map.addLayer(
+    {
+      id: heatLayerId,
+      type: "raster",
+      source: heatSourceId,
+      paint: {
+        "raster-opacity": 0.75,
+        "raster-fade-duration": 0,
+      },
+    },
+    backgroundLayerId,
+  );
+};
+
+const removeHeatLayer = (map: maplibregl.Map) => {
+  if (map.getLayer(heatLayerId)) {
+    map.removeLayer(heatLayerId);
+  }
+
+  if (map.getSource(heatSourceId)) {
+    map.removeSource(heatSourceId);
+  }
 };
 
 const hideConfiguredMapLayers = (map: maplibregl.Map) => {
@@ -464,14 +460,18 @@ const hideConfiguredMapLayers = (map: maplibregl.Map) => {
 const Map = () => {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
+  const initialMapModeRef = useRef<MapMode>(getInitialMapMode());
   const MAPTILER_KEY = import.meta.env.VITE_MAPTILER_KEY;
 
-  const [mapMode, setMapMode] = useState<MapMode>("current");
-  const [layers, setLayers] = useState(layerConfigs.current);
+  const [mapMode, setMapMode] = useState<MapMode>(initialMapModeRef.current);
+  const [layers, setLayers] = useState<LayerConfig[]>(
+    () => layerConfigs[initialMapModeRef.current],
+  );
   const [heatTileUrl, setHeatTileUrl] = useState<string | null>(null);
   const [heatMaxZoom, setHeatMaxZoom] = useState(6);
   const [heatMapError, setHeatMapError] = useState<string | null>(null);
   const [isMapLoaded, setIsMapLoaded] = useState(false);
+  const [isPanelOpen, setIsPanelOpen] = useState(false);
 
   const [allProvinces, setAllProvinces] = useState<
     { name: string; fid: string | number }[]
@@ -553,8 +553,16 @@ const Map = () => {
     );
 
   const handleMapModeChange = (mode: MapMode) => {
-    if (mode === "heat" && mapRef.current?.isStyleLoaded()) {
-      hideConfiguredMapLayers(mapRef.current);
+    if (mode === mapMode) return;
+
+    if (mode === "heat") {
+      window.sessionStorage.setItem(mapModeStorageKey, "heat");
+      window.location.reload();
+      return;
+    }
+
+    if (mapMode === "heat" && mapRef.current?.isStyleLoaded()) {
+      removeHeatLayer(mapRef.current);
     }
 
     setMapMode(mode);
@@ -678,16 +686,16 @@ const Map = () => {
     const map = mapRef.current;
 
     if (mapMode !== "heat") {
-      if (map.getLayer("yr-heat-map-layer")) {
-        map.setLayoutProperty("yr-heat-map-layer", "visibility", "none");
-      }
+      setHeatBaseLayerVisibility(map, "visible");
+      removeHeatLayer(map);
       return;
     }
 
     if (!heatTileUrl) return;
 
+    setHeatBaseLayerVisibility(map, "none");
+    removeHeatLayer(map);
     addHeatLayer(map, heatTileUrl, heatMaxZoom);
-    map.setLayoutProperty("yr-heat-map-layer", "visibility", "visible");
   }, [mapMode, heatTileUrl, heatMaxZoom, isMapLoaded]);
 
   // filter and zoom when province selected
@@ -919,9 +927,12 @@ const Map = () => {
     const map = mapRef.current;
 
     if (mapMode === "heat") {
+      setHeatBaseLayerVisibility(map, "none");
       hideConfiguredMapLayers(map);
       return;
     }
+
+    setHeatBaseLayerVisibility(map, "visible");
 
     const activeLayerIds = layers.map((l) => l.id);
     const allLayers = [
@@ -967,12 +978,14 @@ const Map = () => {
   }, [layers, mapMode, isMapLoaded]);
 
   return (
-    <div className="flex w-screen h-screen overflow-hidden">
+    <div className="flex h-dvh w-screen overflow-hidden">
       <LeftPanel
         layers={layers}
         onOpacityChange={handleOpacityChange}
         onToggle={handleToggle}
         onResetLayers={handleResetLayers}
+        isOpen={isPanelOpen}
+        onClose={() => setIsPanelOpen(false)}
         provinces={provinces}
         selectedProvince={
           allProvinces.find((p) => String(p.fid) === String(selectedProvince))
@@ -990,12 +1003,19 @@ const Map = () => {
         setSelectedWard={setSelectedWard}
         onResetFilters={handleResetFilters}
       />
-      <div className="relative w-full">
+      <div className="relative min-w-0 flex-1">
         <div ref={mapContainerRef} className="w-full h-full" />
-        <div className="absolute right-5 top-5 z-10 rounded-xl border border-white/60 bg-white/90 p-1 shadow-xl backdrop-blur">
+        <button
+          type="button"
+          className="absolute left-3 top-3 z-10 rounded-lg border border-white/70 bg-white/95 px-3 py-2 text-sm font-semibold text-slate-800 shadow-lg backdrop-blur md:hidden"
+          onClick={() => setIsPanelOpen(true)}
+        >
+          Menu
+        </button>
+        <div className="absolute left-3 right-3 top-16 z-10 rounded-xl border border-white/60 bg-white/90 p-1 shadow-xl backdrop-blur md:left-auto md:right-5 md:top-5">
           <div className="grid grid-cols-3 gap-1">
             <button
-              className={`cursor-pointer rounded-lg px-4 py-2 text-sm font-semibold transition ${
+              className={`min-w-0 cursor-pointer rounded-lg px-2 py-2 text-xs font-semibold transition sm:px-4 sm:text-sm ${
                 mapMode === "current"
                   ? "bg-slate-900 text-white shadow"
                   : "text-slate-600 hover:bg-slate-100"
@@ -1005,7 +1025,7 @@ const Map = () => {
               Current
             </button>
             <button
-              className={`cursor-pointer rounded-lg px-4 py-2 text-sm font-semibold transition ${
+              className={`min-w-0 cursor-pointer rounded-lg px-2 py-2 text-xs font-semibold transition sm:px-4 sm:text-sm ${
                 mapMode === "historical"
                   ? "bg-slate-900 text-white shadow"
                   : "text-slate-600 hover:bg-slate-100"
@@ -1015,7 +1035,7 @@ const Map = () => {
               Historical
             </button>
             <button
-              className={`cursor-pointer rounded-lg px-4 py-2 text-sm font-semibold transition ${
+              className={`min-w-0 cursor-pointer rounded-lg px-2 py-2 text-xs font-semibold transition sm:px-4 sm:text-sm ${
                 mapMode === "heat"
                   ? "bg-slate-900 text-white shadow"
                   : "text-slate-600 hover:bg-slate-100"
@@ -1027,7 +1047,7 @@ const Map = () => {
           </div>
         </div>
         {mapMode === "heat" && heatMapError && (
-          <div className="absolute right-5 top-20 z-10 rounded-xl border border-white/60 bg-white/90 px-4 py-3 text-sm text-slate-700 shadow-xl backdrop-blur">
+          <div className="absolute left-3 right-3 top-32 z-10 rounded-xl border border-white/60 bg-white/90 px-4 py-3 text-sm text-slate-700 shadow-xl backdrop-blur md:left-auto md:right-5 md:top-20">
             {heatMapError}
           </div>
         )}

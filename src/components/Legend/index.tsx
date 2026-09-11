@@ -24,7 +24,7 @@ const Legend = ({ layers, mapMode }: LegendProps) => {
   const visibleLayers = layers.filter((layer) => layer.visible);
 
   return (
-    <div className="absolute bottom-6 right-5 z-10 w-56 rounded-xl border border-white/60 bg-white/90 p-4 shadow-xl backdrop-blur">
+    <div className="absolute bottom-3 left-3 right-3 z-10 rounded-xl border border-white/60 bg-white/90 p-3 shadow-xl backdrop-blur sm:left-auto sm:bottom-6 sm:right-5 sm:w-56 sm:p-4">
       <div className="mb-3">
         <p className="text-xs font-semibold uppercase text-slate-500">
           Legend
