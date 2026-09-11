@@ -20,11 +20,19 @@ const layerColors: Record<string, string> = {
   "old-districts": "#fb7185",
 };
 
+const heatLegendLabels = [">40", "40", "30", "20", "10", "0", "-10", "-20", "-30", "<-30"];
+const heatLegendGradient =
+  "linear-gradient(to bottom, #8a0629 0%, #c91f16 11%, #f04e38 25%, #ff9165 38%, #fff36e 52%, #d0f5d9 64%, #85e4ed 76%, #649be2 89%, #481581 100%)";
+
 const Legend = ({ layers, mapMode }: LegendProps) => {
   const visibleLayers = layers.filter((layer) => layer.visible);
 
   return (
-    <div className="absolute bottom-3 left-3 right-3 z-10 rounded-xl border border-white/60 bg-white/90 p-3 shadow-xl backdrop-blur sm:left-auto sm:bottom-6 sm:right-5 sm:w-56 sm:p-4">
+    <div
+      className={`absolute bottom-3 left-3 z-10 rounded-xl border border-white/60 bg-white/90 p-3 shadow-xl backdrop-blur sm:left-auto sm:bottom-6 sm:right-5 sm:p-4 ${
+        mapMode === "heat" ? "w-28" : "right-3 sm:w-56"
+      }`}
+    >
       <div className="mb-3">
         <p className="text-xs font-semibold uppercase text-slate-500">
           Legend
@@ -39,9 +47,19 @@ const Legend = ({ layers, mapMode }: LegendProps) => {
       </div>
       <div className="flex flex-col gap-2">
         {mapMode === "heat" && (
-          <div className="flex items-center gap-2 text-sm text-slate-700">
-            <span className="h-3 w-8 rounded-full bg-gradient-to-r from-blue-500 via-yellow-400 to-red-500" />
-            <span>Yr air temperature</span>
+          <div className="flex flex-col gap-2">
+            <span className="text-xs font-semibold text-slate-700">°C</span>
+            <div className="flex items-stretch gap-3">
+              <span
+                className="h-44 w-3 shrink-0 rounded-full shadow-inner ring-1 ring-slate-900/10"
+                style={{ background: heatLegendGradient }}
+              />
+              <div className="flex h-44 flex-col justify-between text-sm leading-none text-slate-900">
+                {heatLegendLabels.map((label) => (
+                  <span key={label}>{label}</span>
+                ))}
+              </div>
+            </div>
           </div>
         )}
         {mapMode !== "heat" && visibleLayers.length === 0 && (
