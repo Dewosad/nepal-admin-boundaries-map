@@ -349,6 +349,23 @@ const addHeatLayer = (map: maplibregl.Map, tileUrl: string, maxzoom = 6) => {
       ? map.getStyle().layers?.[backgroundLayerIndex + 1].id
       : undefined;
 
+  // const style = map.getStyle();
+  // const layers = style.layers || [];
+
+  // const shadingIndices = layers
+  //   .map((l, i) => ({ l, i }))
+  //   .filter(({ l }) => l.type === "hillshade" || /hillshade/i.test(l.id))
+  //   .map(({ i }) => i);
+
+  // const lastShadingIndex = shadingIndices.length
+  //   ? Math.max(...shadingIndices)
+  //   : -1;
+
+  // const backgroundLayerId =
+  //   lastShadingIndex >= 0 && layers[lastShadingIndex + 1]
+  //     ? layers[lastShadingIndex + 1].id
+  //     : undefined;
+
   console.log("test layers", map.getStyle());
 
   const layersToRemove = [
@@ -376,11 +393,11 @@ const addHeatLayer = (map: maplibregl.Map, tileUrl: string, maxzoom = 6) => {
     "Highway",
     "Path minor",
     "Path",
-    "State labels",
+    // "State labels",
     // "City labels",
-    "Town labels",
-    // "Country labels",
-    "Continent labels",
+    // "Town labels",
+    "Country labels",
+    // "Continent labels",
 
     // Boundaries
     "Other border",
