@@ -352,7 +352,7 @@ const addMapLayer = (map: maplibregl.Map, id: string) => {
 
 const heatSourceId = "yr-heat-map";
 const heatLayerId = "yr-heat-map-layer";
-const heatBaseLayerIdsToHide = [
+const heatBaseLayerIdsToHide: string[] = [
   // Water
   // "Water",
   // "Water intermittent",
